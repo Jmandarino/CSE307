@@ -152,7 +152,7 @@ class Variable(Node):
 class VariableName(Node):
 
     def __init__(self, value):
-        self.value = value
+        self.name = value
     def evaluate(self):
         if (self.name in variableDictionary):
             self.value = variableDictionary[self.name]
@@ -707,7 +707,7 @@ class Parser(tpg.Parser):
     token int "\d+" IntLiteral;
     token var '[A-Za-z0-9_]+ = .*' Variable;
     token bool "True|False" BoolLiteral;
-    token varName '[A-Za-z0-9_]' VariableName;
+    token varName '[A-Za-z0-9_]+' VariableName;
 
 
 	START/a ->  brackets/a;
