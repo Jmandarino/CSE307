@@ -1,13 +1,14 @@
 import string
 import sys
 import tpg
+import re
 
 """
 
 
 """
 
-#contsant
+# contsant
 variableDictionary = {}
 
 def RepInt(s):
@@ -77,6 +78,16 @@ class StringLiteral(Node):
     def evaluate(self):
         return self.value
 
+class BoolLiteral(Node):
+        def __init__(self, value):
+            if(value =="True"):
+                self.value = True
+            else:
+                self.value = False
+
+
+        def evaluate(self):
+            return self.value
 
 class Variable(Node):
     """
@@ -101,6 +112,12 @@ class Variable(Node):
         print(variableDictionary)
 
     def evaluate(self):
+
+        if ( self.name in variableDictionary):
+            self.value = variableDictionary[self.name]
+
+
+
         print("we made it to evalue")
         if("." in self.value and '"' not in self.value and "[" not in self.value):
             return float(self.value)
@@ -125,6 +142,45 @@ class Variable(Node):
                     print("we are in var evaluate")
                     temp.append(list(item))
                 elif(isinstance(item, str)):
+                    print("string that might fail")
+                    temp.append(str(item.strip('"')))
+            print("this is temp")
+            print(temp)
+            print(type(temp[0]))
+            return temp
+
+class VariableName(Node):
+
+    def __init__(self, value):
+        self.value = value
+    def evaluate(self):
+        if (self.name in variableDictionary):
+            self.value = variableDictionary[self.name]
+
+        print("we made it to evalue in varname")
+        if ("." in self.value and '"' not in self.value and "[" not in self.value):
+            return float(self.value)
+        elif ("[" not in self.value and "." not in self.value and '"' not in self.value):
+            return int(self.value)
+        elif ('"' in self.value):  # this shold be a string
+            return str(self.value).strip('"')
+        else:
+            print("hoping its a list")
+
+            l = list(self.value.strip(']').strip('[').split(','))
+            print("this is the list " + str(l))
+            temp = []
+
+            for item in l:
+                if (RepInt(item)):
+                    temp.append(int(item))
+                elif (RepFloat(item)):
+                    temp.append(float(item))
+                elif (isinstance(item, list)):
+                    print("list so this might fail")
+                    print("we are in var evaluate")
+                    temp.append(list(item))
+                elif (isinstance(item, str)):
                     print("string that might fail")
                     temp.append(str(item.strip('"')))
             print("this is temp")
@@ -650,7 +706,8 @@ class Parser(tpg.Parser):
     token real "(\d+\.\d*|\d*\.\d+)([eE][-+]?\d+)?|\d+[eE][-+]?\d+"  RealLiteral;
     token int "\d+" IntLiteral;
     token var '[A-Za-z0-9_]+ = .*' Variable;
-
+    token bool "True|False" BoolLiteral;
+    token varName '[A-Za-z0-9_]' VariableName;
 
 
 	START/a ->  brackets/a;
@@ -687,7 +744,7 @@ class Parser(tpg.Parser):
 
 	parens/a -> "\(" expression/a "\)" | literal/a;
 
-    literal/a->  string/a | real/a | int/a | array/a | var/a;
+    literal/a->  string/a | real/a | int/a | array/a | var/a | bool/a | varName/a;
 
 
     array/a -> "\["        $ a = ListLiteral(None) $
@@ -715,27 +772,84 @@ except(IndexError, IOError):
     f = open("input1.txt", "r")
 
 # For each line in f
+ifStack = []
+conditionTrue = False
+conditionFalse = False
+ExecuteIf = False
+FinishIf = False
+closeBracket = re.compile("}$")
+
 for l in f:
 
     l = l.replace(";", "")
     print("this is line: " + str(l))
 
-    if("if(" in l):
+
+    # end of if
+    if closeBracket.match(l) and (conditionFalse or conditionFalse):
+        conditionTrue = False
+        conditionFalse = False
+        ExecuteIf = False
+        continue
+
+    # if we find the else
+    if conditionTrue :
+        if "else" in l:
+            # end of excuting if statment
+            ExecuteIf = False
+            continue
+        elif not ExecuteIf:
+            continue
+
+
+
+    # continue if
+    if len(ifStack) > 0:
+        if ifStack[len(ifStack) -1 ] :
+            conditionTrue = True
+            conditionFalse = False
+            ExecuteIf =True
+            ifStack.pop()
+            # run the prog as usual
+        elif not ifStack[len(ifStack) -1]:
+            # if statment evlautes to false
+            conditionTrue = False
+            conditionFalse = True
+            ExecuteIf = False
+            ifStack.pop()
+
+    if conditionFalse:
+        if "else" in l:
+            # end of excuting if statment
+            ExecuteIf = True
+            continue
+        elif not ExecuteIf:
+            continue
+
+
+    # start of if
+    if "if(" in l :
         #parsing if
         l = l.replace("if(", "")
+        l = l.replace("}", "")
+        l = l.replace("{", "")
         l = l.strip()
         l = l[:-1]
-        print(l)
 
+        node = parse(l)
 
+        result = node.evaluate()
+
+        ifStack.append(result)
+        continue
+
+    print("Parsing::")
 
     try:
         # Try to parse the expression.
-        print("Trying to parse")
+        # print("Trying to parse")
         node = parse(l)
-        print("looking for the node")
-
-
+        # print("looking for the node")
 
         # Try to get a result.
         result = node.evaluate()
